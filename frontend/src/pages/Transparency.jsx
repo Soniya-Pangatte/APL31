@@ -174,6 +174,7 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
 };
 
 
+
 export default Transparency;
 
 
