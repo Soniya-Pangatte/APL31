@@ -11,6 +11,7 @@ import {
   arbitrum,
   base,
   sepolia,
+  baseSepolia,
 } from 'wagmi/chains';
 import {
   QueryClientProvider,
@@ -20,7 +21,7 @@ import {
 export const config = getDefaultConfig({
   appName: 'Disaster Relief Transparent Donation Network',
   projectId: 'YOUR_PROJECT_ID', // Replace with your Reown Cloud Project ID
-  chains: [mainnet, polygon, optimism, arbitrum, base, sepolia],
+  chains: [mainnet, polygon, optimism, arbitrum, base, sepolia, baseSepolia],
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 
