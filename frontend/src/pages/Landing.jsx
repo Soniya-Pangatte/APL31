@@ -47,13 +47,11 @@ const Landing = () => {
           >
             {/* Main Headline */}
             <div className="relative inline-block">
-              <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.95]">
-                Small help.
+                <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[0.95]">
+                Where Humanity
                 <br />
-                <span className="text-lime-400">Big impact.</span>
-              </h1>
-              {/* Abstract hand-drawn circle element matching the mock UI */}
-              <div className="absolute -top-4 -left-6 w-[115%] h-[120%] border-4 border-zinc-500/30 rounded-[50%] pointer-events-none transform -rotate-2" />
+              <span className="text-white">Meets Transparency.</span>
+                </h1>
             </div>
 
             <p className="text-zinc-300 text-lg md:text-xl leading-relaxed max-w-xl font-normal">
@@ -63,7 +61,7 @@ const Landing = () => {
             {/* CTA Elements */}
             <div className="flex flex-wrap items-center gap-5 pt-2">
               <Link to="/signup">
-                <button className="bg-lime-400 hover:bg-lime-300 text-black font-bold px-8 py-4 rounded-full text-base transition duration-300 shadow-xl flex items-center gap-2">
+                <button className="bg-[#E1E6E3] text-black hover:bg-transparent hover:text-white border border-transparent hover:border-white/20 font-bold px-8 py-4 rounded-full text-base transition duration-300 shadow-2xl flex items-center gap-2">
                   Join the Network &rarr;
                 </button>
               </Link>
@@ -86,12 +84,12 @@ const Landing = () => {
           >
             <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 max-w-xs shadow-2xl flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-lime-400/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <ShieldCheck className="text-lime-400" size={22} />
+                <ShieldCheck className="text-white" size={22} />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-white mb-1">100% Transparent</h4>
+                <h4 className="text-lg font-bold text-white mb-1">Direct-to-Impact Tracking</h4>
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  Every rupee tracked securely on blockchain.
+                  Bypassing administrative blindspots with public, real-time fund utilization logs.
                 </p>
               </div>
             </div>
@@ -100,36 +98,36 @@ const Landing = () => {
 
         {/* Integrated Floating Metrics Dashboard Bottom Section */}
         <section className="mt-16 lg:mt-auto">
-          <div className="bg-zinc-950/60 backdrop-blur-2xl border border-white/10 rounded-[32px] p-8 lg:p-10 shadow-2xl">
+          <div className="bg-zinc-950/60 backdrop-blur-4xl border border-white/10 rounded-[32px] p-8 lg:p-10 shadow-2xl">
             
             {/* Top row mini features layout indicators inside the frame */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pb-8 border-b border-white/10 mb-8">
               <div className="flex items-center gap-3">
-                <ShieldCheck className="text-lime-400 flex-shrink-0" size={20} />
+                <ShieldCheck className="text-white flex-shrink-0" size={20} />
                 <div>
-                  <h5 className="text-sm font-bold text-white">Verified NGOs</h5>
-                  <p className="text-xs text-zinc-400">Every NGO verified before listing.</p>
+                  <h5 className="text-m font-bold text-white">Verified NGOs</h5>
+                  <p className="text-s text-zinc-400">Every NGO is verified before listing.</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Users className="text-lime-400 flex-shrink-0" size={20} />
+                <Users className="text-white flex-shrink-0" size={20} />
                 <div>
-                  <h5 className="text-sm font-bold text-white">Verified Volunteers</h5>
-                  <p className="text-xs text-zinc-400">Every volunteer is background checked.</p>
+                  <h5 className="text-m font-bold text-white">Verified Volunteers</h5>
+                  <p className="text-s text-zinc-400">Every volunteer's background is checked.</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Landmark className="text-lime-400 flex-shrink-0" size={20} />
+                <Landmark className="text-white flex-shrink-0" size={20} />
                 <div>
-                  <h5 className="text-sm font-bold text-white">Transparent Tracking</h5>
-                  <p className="text-xs text-zinc-400">Track every donation in real-time.</p>
+                  <h5 className="text-m font-bold text-white">Transparent Tracking</h5>
+                  <p className="text-s text-zinc-400">Track every donation in real-time.</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Heart className="text-lime-400 flex-shrink-0" size={20} />
+                <Heart className="text-white flex-shrink-0" size={20} />
                 <div>
-                  <h5 className="text-sm font-bold text-white">Real Impact</h5>
-                  <p className="text-xs text-zinc-400">See the real impact of your money.</p>
+                  <h5 className="text-m font-bold text-white">Real Impact</h5>
+                  <p className="text-s text-zinc-400">See the real impact of your money.</p>
                 </div>
               </div>
             </div>
