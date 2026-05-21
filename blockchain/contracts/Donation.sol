@@ -143,13 +143,13 @@ contract Donation is Ownable {
     }
 
     function addUsageRecord(
-        uint256 _campaignId, 
-        uint256 _amount, 
-        string memory _description, 
+        uint256 _campaignId,
+        uint256 _amount,
+        string memory _description,
         string memory _receiptUrl
     ) public {
         require(msg.sender == campaigns[_campaignId].ngo, "Only campaign owner can add usage record");
-        
+
         usageRecords[_campaignId].push(UsageRecord(
             _amount,
             _description,
