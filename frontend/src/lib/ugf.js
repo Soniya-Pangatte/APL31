@@ -28,7 +28,9 @@ import {
 } from '@tychilabs/ugf-testnet-js';
 import { CONTRACT_ADDRESSES } from './contracts';
 import DonationABI from './abi/Donation.json';
+import MockUSDABI from './abi/MockUSD.json';
 import { encodeFunctionData } from 'viem';
+import { Contract, Signature } from 'ethers';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -82,9 +84,40 @@ export function isUGFAuthenticated() {
 // ─── Transaction Encoding ────────────────────────────────────────────────────
 
 /**
+ * Safely parse a campaign ID (which could be a number, a numeric string, or a UUID string) to a BigInt.
+ * If it is a UUID string, it removes the hyphens and parses it as a hexadecimal number.
+ * 
+ * @param {string|number|bigint} id 
+ * @returns {bigint}
+ */
+export function safeParseCampaignId(id) {
+  if (id === null || id === undefined) return 1n;
+  if (typeof id === 'bigint') return id;
+  if (typeof id === 'number') return BigInt(id);
+  
+  const idStr = String(id).trim();
+  if (idStr.includes('-')) {
+    try {
+      const cleanHex = idStr.replace(/-/g, '');
+      return BigInt('0x' + cleanHex);
+    } catch (e) {
+      console.warn("Failed to parse UUID campaignId to BigInt, falling back to 1", e);
+      return 1n;
+    }
+  }
+  
+  try {
+    return BigInt(idStr);
+  } catch (e) {
+    console.warn("Failed to parse campaignId to BigInt, falling back to 1", e);
+    return 1n;
+  }
+}
+
+/**
  * Encode a donateToCampaign call for the Donation contract.
  * 
- * @param {bigint|number} campaignId 
+ * @param {bigint|number|string} campaignId 
  * @param {bigint} amount - Amount in token base units (wei)
  * @param {string} message - Donation message
  * @returns {string} Encoded calldata (hex)
@@ -93,14 +126,14 @@ export function encodeDonationTransaction(campaignId, amount, message) {
   return encodeFunctionData({
     abi: DonationABI,
     functionName: 'donateToCampaign',
-    args: [BigInt(campaignId), BigInt(amount), message],
+    args: [safeParseCampaignId(campaignId), BigInt(amount), message],
   });
 }
 
 /**
  * Encode a donateToCampaignWithPermit call (when permit support is added to contract).
  * 
- * @param {bigint|number} campaignId
+ * @param {bigint|number|string} campaignId
  * @param {bigint} amount
  * @param {string} message
  * @param {bigint} deadline
@@ -113,7 +146,7 @@ export function encodeDonationWithPermitTransaction(campaignId, amount, message,
   return encodeFunctionData({
     abi: DonationABI,
     functionName: 'donateToCampaignWithPermit',
-    args: [BigInt(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
+    args: [safeParseCampaignId(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
   });
 }
 
@@ -259,13 +292,61 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
   }
   progress('auth', { status: 'Authenticated' });
 
-  // 2. Encode transaction
-  progress('encode', { status: 'Preparing transaction...' });
+  // 2. Sign Permit (Gasless Approval)
+  progress('permit', { status: 'Signing token permit (gasless)...' });
+  const tokenAddress = CONTRACT_ADDRESSES.baseSepolia.tyiMockUSD;
+  const tokenContract = new Contract(tokenAddress, MockUSDABI, signer);
+  const tokenName = await tokenContract.name();
+  const nonce = await tokenContract.nonces(payerAddress);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour expiration
   const amountWei = BigInt(amount) * BigInt(10 ** 18);
-  const encodedData = encodeDonationTransaction(campaignId, amountWei, message);
+
+  const chainId = UGF_CONFIG.chainId;
+
+  const domain = {
+    name: tokenName,
+    version: '1',
+    chainId: Number(chainId),
+    verifyingContract: tokenAddress,
+  };
+
+  const types = {
+    Permit: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+  };
+
+  const value = {
+    owner: payerAddress,
+    spender: donationContractAddress,
+    value: amountWei,
+    nonce: nonce,
+    deadline: deadline,
+  };
+
+  // Sign typed data using the ethers signer
+  const signature = await signer.signTypedData(domain, types, value);
+  const sig = Signature.from(signature);
+  progress('permit', { status: 'Token permit signed successfully!' });
+
+  // 3. Encode transaction with permit
+  progress('encode', { status: 'Preparing sponsored transaction...' });
+  const encodedData = encodeDonationWithPermitTransaction(
+    campaignId,
+    amountWei,
+    message,
+    deadline,
+    sig.v,
+    sig.r,
+    sig.s
+  );
   progress('encode', { status: 'Transaction prepared' });
 
-  // 3. Get quote
+  // 4. Get quote
   progress('quote', { status: 'Getting gas sponsorship quote...' });
   const quote = await getDonationQuote({
     payerAddress,
@@ -280,13 +361,13 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
     expiresAt: quote.expires_at,
   });
 
-  // 4. Pay for gas
+  // 5. Pay for gas
   progress('payment', { status: 'Paying gas fee in MockUSD...' });
   await payForGas(quote, signer, provider);
   progress('payment', { status: 'Gas fee paid' });
 
-  // 5. Execute sponsored transaction
-  progress('execute', { status: 'Executing donation on-chain...' });
+  // 6. Execute sponsored transaction
+  progress('execute', { status: 'Executing donation on Base Sepolia...' });
   const result = await executeSponsoredTransaction(
     quote.digest,
     signer,
