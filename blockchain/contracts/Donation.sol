@@ -81,8 +81,6 @@ contract Donation is Ownable {
         require(campaigns[_campaignId].active, "Campaign is not active");
         require(_amount > 0, "Amount must be > 0");
 
-        // Note: For UGF integration, the transfer should be handled by UGF's settlement
-        // This function will be called via UGF's sponsored execution
         donationToken.transferFrom(msg.sender, address(this), _amount);
 
         campaigns[_campaignId].raisedAmount += _amount;
@@ -147,13 +145,13 @@ contract Donation is Ownable {
     }
 
     function addUsageRecord(
-        uint256 _campaignId, 
-        uint256 _amount, 
-        string memory _description, 
+        uint256 _campaignId,
+        uint256 _amount,
+        string memory _description,
         string memory _receiptUrl
     ) public {
         require(msg.sender == campaigns[_campaignId].ngo, "Only campaign owner can add usage record");
-        
+
         usageRecords[_campaignId].push(UsageRecord(
             _amount,
             _description,
