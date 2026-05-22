@@ -29,6 +29,7 @@ import {
 import { CONTRACT_ADDRESSES } from './contracts';
 import DonationABI from './abi/Donation.json';
 import { encodeFunctionData } from 'viem';
+import { ethers } from 'ethers';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -250,6 +251,7 @@ export async function getChainEntry() {
 export async function donateWithUGF({ signer, provider, campaignId, amount, message, onProgress }) {
   const progress = onProgress || (() => {});
   const donationContractAddress = CONTRACT_ADDRESSES.baseSepolia.donation;
+  const tokenAddress = CONTRACT_ADDRESSES.baseSepolia.tyiMockUSD;
   const payerAddress = await signer.getAddress();
 
   // 1. Authenticate
@@ -259,13 +261,82 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
   }
   progress('auth', { status: 'Authenticated' });
 
-  // 2. Encode transaction
-  progress('encode', { status: 'Preparing transaction...' });
+  // 2. Obtain EIP-2612 Permit Signature (Gasless Approval)
+  progress('permit_signing', { status: 'Please sign the gasless MockUSD approval in your wallet...' });
+  
   const amountWei = BigInt(amount) * BigInt(10 ** 18);
-  const encodedData = encodeDonationTransaction(campaignId, amountWei, message);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1-hour expiration
+  
+  // Connect to the token contract to fetch the current nonce of the payer
+  const tokenContract = new ethers.Contract(
+    tokenAddress,
+    [
+      'function nonces(address owner) view returns (uint256)',
+      'function name() view returns (string)'
+    ],
+    provider
+  );
+  
+  let nonce;
+  let tokenName = 'TYI_MOCK_USD';
+  try {
+    nonce = await tokenContract.nonces(payerAddress);
+  } catch (nonceErr) {
+    console.warn('Could not fetch token nonce directly, defaulting to 0:', nonceErr);
+    nonce = 0n;
+  }
+  
+  try {
+    tokenName = await tokenContract.name();
+  } catch (nameErr) {
+    console.warn('Could not fetch token name, defaulting to TYI_MOCK_USD:', nameErr);
+  }
+
+  // Define Domain and Types for the EIP-712 Signature
+  const domain = {
+    name: tokenName,
+    version: '1',
+    chainId: Number(BASE_SEPOLIA_CHAIN_ID),
+    verifyingContract: tokenAddress,
+  };
+
+  const types = {
+    Permit: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+  };
+
+  const value = {
+    owner: payerAddress,
+    spender: donationContractAddress,
+    value: amountWei,
+    nonce: nonce,
+    deadline: deadline,
+  };
+
+  // Sign the typed permit data
+  const signature = await signer.signTypedData(domain, types, value);
+  const sig = ethers.Signature.from(signature);
+  progress('permit_signing', { status: 'MockUSD Permit approved!' });
+
+  // 3. Encode the Permit-based Transaction
+  progress('encode', { status: 'Preparing transaction...' });
+  const encodedData = encodeDonationWithPermitTransaction(
+    campaignId,
+    amountWei,
+    message,
+    deadline,
+    sig.v,
+    sig.r,
+    sig.s
+  );
   progress('encode', { status: 'Transaction prepared' });
 
-  // 3. Get quote
+  // 4. Get quote
   progress('quote', { status: 'Getting gas sponsorship quote...' });
   const quote = await getDonationQuote({
     payerAddress,
@@ -280,12 +351,12 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
     expiresAt: quote.expires_at,
   });
 
-  // 4. Pay for gas
+  // 5. Pay for gas
   progress('payment', { status: 'Paying gas fee in MockUSD...' });
   await payForGas(quote, signer, provider);
   progress('payment', { status: 'Gas fee paid' });
 
-  // 5. Execute sponsored transaction
+  // 6. Execute sponsored transaction
   progress('execute', { status: 'Executing donation on-chain...' });
   const result = await executeSponsoredTransaction(
     quote.digest,
