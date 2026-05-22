@@ -28,6 +28,7 @@ import {
 } from '@tychilabs/ugf-testnet-js';
 import { CONTRACT_ADDRESSES } from './contracts';
 import DonationABI from './abi/Donation.json';
+import MockUSDABI from './abi/MockUSD.json';
 import { encodeFunctionData } from 'viem';
 import { ethers } from 'ethers';
 
@@ -83,9 +84,40 @@ export function isUGFAuthenticated() {
 // ─── Transaction Encoding ────────────────────────────────────────────────────
 
 /**
+ * Safely parse a campaign ID (which could be a number, a numeric string, or a UUID string) to a BigInt.
+ * If it is a UUID string, it removes the hyphens and parses it as a hexadecimal number.
+ * 
+ * @param {string|number|bigint} id 
+ * @returns {bigint}
+ */
+export function safeParseCampaignId(id) {
+  if (id === null || id === undefined) return 1n;
+  if (typeof id === 'bigint') return id;
+  if (typeof id === 'number') return BigInt(id);
+  
+  const idStr = String(id).trim();
+  if (idStr.includes('-')) {
+    try {
+      const cleanHex = idStr.replace(/-/g, '');
+      return BigInt('0x' + cleanHex);
+    } catch (e) {
+      console.warn("Failed to parse UUID campaignId to BigInt, falling back to 1", e);
+      return 1n;
+    }
+  }
+  
+  try {
+    return BigInt(idStr);
+  } catch (e) {
+    console.warn("Failed to parse campaignId to BigInt, falling back to 1", e);
+    return 1n;
+  }
+}
+
+/**
  * Encode a donateToCampaign call for the Donation contract.
  * 
- * @param {bigint|number} campaignId 
+ * @param {bigint|number|string} campaignId 
  * @param {bigint} amount - Amount in token base units (wei)
  * @param {string} message - Donation message
  * @returns {string} Encoded calldata (hex)
@@ -94,14 +126,14 @@ export function encodeDonationTransaction(campaignId, amount, message) {
   return encodeFunctionData({
     abi: DonationABI,
     functionName: 'donateToCampaign',
-    args: [BigInt(campaignId), BigInt(amount), message],
+    args: [safeParseCampaignId(campaignId), BigInt(amount), message],
   });
 }
 
 /**
  * Encode a donateToCampaignWithPermit call (when permit support is added to contract).
  * 
- * @param {bigint|number} campaignId
+ * @param {bigint|number|string} campaignId
  * @param {bigint} amount
  * @param {string} message
  * @param {bigint} deadline
@@ -114,7 +146,7 @@ export function encodeDonationWithPermitTransaction(campaignId, amount, message,
   return encodeFunctionData({
     abi: DonationABI,
     functionName: 'donateToCampaignWithPermit',
-    args: [BigInt(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
+    args: [safeParseCampaignId(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
   });
 }
 
