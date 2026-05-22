@@ -319,6 +319,11 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_donor",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "_campaignId",
         "type": "uint256"

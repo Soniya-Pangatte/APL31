@@ -133,6 +133,7 @@ export function encodeDonationTransaction(campaignId, amount, message) {
 /**
  * Encode a donateToCampaignWithPermit call (when permit support is added to contract).
  * 
+ * @param {string} payerAddress
  * @param {bigint|number|string} campaignId
  * @param {bigint} amount
  * @param {string} message
@@ -142,11 +143,11 @@ export function encodeDonationTransaction(campaignId, amount, message) {
  * @param {string} s
  * @returns {string} Encoded calldata (hex)
  */
-export function encodeDonationWithPermitTransaction(campaignId, amount, message, deadline, v, r, s) {
+export function encodeDonationWithPermitTransaction(payerAddress, campaignId, amount, message, deadline, v, r, s) {
   return encodeFunctionData({
     abi: DonationABI,
     functionName: 'donateToCampaignWithPermit',
-    args: [safeParseCampaignId(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
+    args: [payerAddress, safeParseCampaignId(campaignId), BigInt(amount), message, BigInt(deadline), v, r, s],
   });
 }
 
@@ -364,6 +365,7 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
   // 3. Encode transaction with permit
   progress('encode', { status: 'Preparing transaction...' });
   const encodedData = encodeDonationWithPermitTransaction(
+    payerAddress,
     campaignId,
     amountWei,
     message,

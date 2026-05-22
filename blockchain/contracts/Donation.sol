@@ -96,6 +96,7 @@ contract Donation is Ownable {
     }
 
     function donateToCampaignWithPermit(
+        address _donor,
         uint256 _campaignId,
         uint256 _amount,
         string memory _message,
@@ -109,7 +110,7 @@ contract Donation is Ownable {
 
         // Execute permit (off-chain signature becomes on-chain approval)
         IERC20Permit(address(donationToken)).permit(
-            msg.sender,
+            _donor,
             address(this),
             _amount,
             _deadline,
@@ -118,18 +119,18 @@ contract Donation is Ownable {
             _s
         );
 
-        donationToken.transferFrom(msg.sender, address(this), _amount);
+        donationToken.transferFrom(_donor, address(this), _amount);
 
         campaigns[_campaignId].raisedAmount += _amount;
 
         donationHistory[_campaignId].push(DonationRecord(
-            msg.sender,
+            _donor,
             _amount,
             block.timestamp,
             _message
         ));
 
-        emit Donated(_campaignId, msg.sender, _amount, _message);
+        emit Donated(_campaignId, _donor, _amount, _message);
     }
 
     function withdrawFunds(uint256 _campaignId, uint256 _amount) public {

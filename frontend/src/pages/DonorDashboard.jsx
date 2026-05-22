@@ -148,6 +148,49 @@ const DonorDashboard = () => {
         </div>
       </div>
 
+      {/* Wallet Status Banner/Card */}
+      {user?.wallet_address ? (
+        <div className="p-8 rounded-[2rem] bg-gradient-to-r from-zinc-950 to-zinc-900 border border-zinc-800 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden group">
+          {/* Subtle decorative glow */}
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-lime-400/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-500"></div>
+          
+          <div className="flex items-center gap-5 relative z-10">
+            <div className="p-4 rounded-2xl bg-zinc-800 border border-zinc-700 text-lime-400">
+              <Wallet size={24} />
+            </div>
+            <div className="text-left space-y-1">
+              <p className="text-xs font-black text-lime-400 uppercase tracking-widest">Linked Web3 Wallet</p>
+              <p className="text-lg font-mono font-bold tracking-tight select-all">
+                {user.wallet_address}
+              </p>
+            </div>
+          </div>
+          <div className="relative z-10 flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-lime-400/10 text-lime-400 border border-lime-400/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></span>
+              Active Donor Wallet
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="p-8 rounded-[2rem] bg-zinc-50 border border-dashed border-zinc-200 text-zinc-600 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-inner">
+          <div className="flex items-center gap-5">
+            <div className="p-4 rounded-2xl bg-white border border-zinc-100 text-zinc-400">
+              <Wallet size={24} />
+            </div>
+            <div className="text-left space-y-1">
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">No Linked Wallet</p>
+              <p className="text-sm font-bold text-zinc-500">
+                Please connect your wallet in the top right to start executing gasless donations.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            Pending Wallet Connection
+          </span>
+        </div>
+      )}
+
       {/* Active Campaigns to Explore */}
       <div className="space-y-8">
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">

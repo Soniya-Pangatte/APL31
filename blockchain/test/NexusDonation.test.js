@@ -117,6 +117,7 @@ describe("Nexus Donation System", function () {
     const sig = ethers.Signature.from(signature);
 
     await donation.connect(donor).donateToCampaignWithPermit(
+      donorAddress,
       1,
       amount,
       "Permit donation",

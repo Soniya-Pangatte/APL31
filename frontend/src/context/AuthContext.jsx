@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { useAccount } from 'wagmi';
 
 const AuthContext = createContext(null);
 
@@ -117,6 +118,33 @@ export const AuthProvider = ({ children }) => {
       toast.error('Error logging out');
     }
   };
+
+  const { address, isConnected } = useAccount();
+
+  useEffect(() => {
+    const syncWalletAddress = async () => {
+      if (user && isConnected && address) {
+        if (!user.wallet_address || user.wallet_address.toLowerCase() !== address.toLowerCase()) {
+          console.log(`Syncing wallet address ${address} for user ${user.id}`);
+          try {
+            const { error } = await supabase
+              .from('users')
+              .update({ wallet_address: address })
+              .eq('id', user.id);
+            
+            if (error) throw error;
+            
+            setUser(prev => prev ? { ...prev, wallet_address: address } : null);
+            toast.success('Wallet address successfully linked to your profile!');
+          } catch (err) {
+            console.error('Failed to sync wallet address:', err);
+          }
+        }
+      }
+    };
+
+    syncWalletAddress();
+  }, [user, address, isConnected]);
 
   return (
     <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
