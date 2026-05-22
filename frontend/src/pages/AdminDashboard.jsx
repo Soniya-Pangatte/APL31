@@ -37,7 +37,7 @@ const AdminDashboard = () => {
       setNgos(formattedNgos);
 
       // Fetch Campaigns for stats
-      const { data: campaignData } = await supabase.from('campaigns').select('raised_amount');
+      const { data: campaignData } = await supabase.from('campaigns').select('*, donation_logs(amount)');
       if (campaignData) setCampaigns(campaignData);
     } catch (error) {
       console.error("Error fetching admin data:", error);
@@ -82,7 +82,12 @@ const AdminDashboard = () => {
     ngo.status === 'pending'
   );
 
-  const totalRaised = campaigns.reduce((acc, c) => acc + parseFloat(c.raised_amount), 0);
+  const totalRaised = campaigns.reduce((acc, c) => {
+    const raisedAmount = c.donation_logs
+      ? c.donation_logs.reduce((sum, d) => sum + parseFloat(d.amount), 0)
+      : parseFloat(c.raised_amount || 0);
+    return acc + raisedAmount;
+  }, 0);
 
   return (
     <div className="max-w-4xl mx-auto space-y-16 py-8">

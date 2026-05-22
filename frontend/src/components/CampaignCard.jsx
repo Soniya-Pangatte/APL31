@@ -4,7 +4,10 @@ import { Heart, ArrowRight } from 'lucide-react';
 import Button from './Button';
 
 const CampaignCard = ({ campaign }) => {
-  const progress = Math.min((campaign.raised_amount / campaign.goal_amount) * 100, 100);
+  const raisedAmount = campaign.donation_logs 
+    ? campaign.donation_logs.reduce((sum, d) => sum + parseFloat(d.amount), 0) 
+    : parseFloat(campaign.raised_amount || 0);
+  const progress = Math.min((raisedAmount / campaign.goal_amount) * 100, 100);
 
   return (
     <div className="bg-zinc-900/40 backdrop-blur-xl rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl hover:border-white/20 transition-all duration-300 group flex flex-col">
@@ -44,7 +47,7 @@ const CampaignCard = ({ campaign }) => {
             <div className="flex justify-between items-end pt-2">
               <div>
                 <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Raised</span>
-                <span className="text-lg font-black text-white">${campaign.raised_amount.toLocaleString()}</span>
+                <span className="text-lg font-black text-white">${raisedAmount.toLocaleString()}</span>
               </div>
               <div className="text-right">
                 <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Goal</span>

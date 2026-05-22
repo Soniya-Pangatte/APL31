@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { mockDb } from '../services/mockDb';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Heart, Share2, ShieldCheck, History, ArrowLeft, Wallet, Loader2 } from 'lucide-react';
+import { Heart, Share2, ShieldCheck, History, ArrowLeft, Wallet, ArrowUpRight } from 'lucide-react';
 import Button from '../components/Button';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { toast } from 'sonner';
 import { useNexusWallet } from '../lib/useNexusWallet';
 import { donateWithUGF, handleUGFError } from '../lib/ugf';
+
 
 const CampaignDetails = () => {
   const { id } = useParams();
@@ -22,6 +23,8 @@ const CampaignDetails = () => {
   const [donationAmount, setDonationAmount] = useState('');
   const [isDonating, setIsDonating] = useState(false);
   const [ugfStep, setUgfStep] = useState(null);
+  const [spendingLogs, setSpendingLogs] = useState([]);
+
 
   useEffect(() => {
     const fetchCampaignData = async () => {
@@ -29,7 +32,7 @@ const CampaignDetails = () => {
         // Fetch campaign details
         const { data: campaignData, error: campaignError } = await supabase
           .from('campaigns')
-          .select('*')
+          .select('*, donation_logs(amount)')
           .eq('id', id)
           .single();
 
@@ -45,6 +48,19 @@ const CampaignDetails = () => {
           .limit(5);
 
         if (donationData) setDonations(donationData);
+
+        // Fetch spending logs (transparency / audit ledger)
+        const { data: usageData } = await supabase
+          .from('fund_usage')
+          .select('*')
+          .eq('campaign_id', id)
+          .order('created_at', { ascending: false });
+
+        if (usageData) {
+          // Filter to only display records stored on the Pinata (IPFS) network
+          const validLogs = usageData.filter(log => log.proof_url && log.proof_url.includes('pinata.cloud'));
+          setSpendingLogs(validLogs);
+        }
       } catch (error) {
         console.error("Error fetching campaign details:", error);
       } finally {
@@ -72,7 +88,13 @@ const CampaignDetails = () => {
     );
   }
 
-  const progress = Math.min((parseFloat(campaign.raised_amount) / parseFloat(campaign.goal_amount)) * 100, 100);
+  const raisedAmount = campaign.donation_logs 
+    ? campaign.donation_logs.reduce((sum, d) => sum + parseFloat(d.amount), 0) 
+    : parseFloat(campaign.raised_amount || 0);
+
+  const progress = Math.min((raisedAmount / parseFloat(campaign.goal_amount)) * 100, 100);
+  const totalSpent = spendingLogs.reduce((acc, log) => acc + parseFloat(log.amount), 0);
+  const remainingBalance = Math.max(raisedAmount - totalSpent, 0);
 
   const handleDonate = async (e) => {
     e.preventDefault();
@@ -142,16 +164,20 @@ const CampaignDetails = () => {
 
       if (donationError) throw donationError;
 
-      // 2. Update Campaign raised_amount
-      const newRaisedAmount = parseFloat(campaign.raised_amount) + amount;
-      const { error: updateError } = await supabase
-        .from('campaigns')
-        .update({ raised_amount: newRaisedAmount })
-        .eq('id', id);
+      // Donation receipt generation has been disabled per user request
 
-      if (updateError) throw updateError;
-      
-      setCampaign({ ...campaign, raised_amount: newRaisedAmount });
+
+      // Update local campaign state dynamically
+      const newDonationLogItem = { amount: amount };
+      const updatedDonationLogs = campaign.donation_logs 
+        ? [...campaign.donation_logs, newDonationLogItem] 
+        : [newDonationLogItem];
+
+      setCampaign({
+        ...campaign,
+        donation_logs: updatedDonationLogs,
+        raised_amount: (parseFloat(campaign.raised_amount) || 0) + amount
+      });
       setDonations([newDonation, ...donations.slice(0, 4)]);
       toast.success(`Thank you! Your donation of $${donationAmount} was successful.`);
       setDonationAmount('');
@@ -209,7 +235,7 @@ const CampaignDetails = () => {
       <div className="bg-zinc-50 rounded-[2.5rem] p-8 sm:p-12 space-y-8 border border-zinc-100">
         <div className="space-y-4 text-center">
            <div className="flex flex-col items-center justify-center gap-2">
-             <span className="text-5xl font-black text-black">${campaign.raised_amount.toLocaleString()}</span>
+             <span className="text-5xl font-black text-black">${raisedAmount.toLocaleString()}</span>
              <span className="text-zinc-500 font-medium text-lg">raised of ${campaign.goal_amount.toLocaleString()} goal</span>
            </div>
            
@@ -292,6 +318,76 @@ const CampaignDetails = () => {
           <p className="text-zinc-600 leading-relaxed font-medium mt-4">
             This campaign is focused on providing immediate relief to the victims of the recent disaster. Your contributions will be used for essential supplies including food, clean water, medical aid, and temporary shelter. We guarantee 100% transparency with zero middleman fees.
           </p>
+        </div>
+
+        {/* NGO Spending Proof of Impact Ledger */}
+        <div className="space-y-6 pt-12 border-t border-zinc-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="text-2xl font-black text-black flex items-center justify-center sm:justify-start gap-2">
+              <ShieldCheck className="text-black stroke-[2.5]" />
+              Fund Spends & Proof of Impact
+            </h2>
+            <span className="px-3.5 py-1.5 bg-lime-400 text-black text-xs font-black uppercase tracking-wider rounded-full shadow-sm mx-auto sm:mx-0 flex items-center gap-1.5 animate-pulse font-mono">
+              <span className="w-1.5 h-1.5 bg-black rounded-full"></span>
+              IPFS Audited Logs
+            </span>
+          </div>
+
+          <p className="text-sm text-zinc-500 text-center sm:text-left leading-relaxed font-medium">
+            All expenditures recorded below include invoices, purchase logs, and receipts locked cryptographically on the decentralized IPFS network. Every donor can verify exactly how funds were deployed.
+          </p>
+
+          {/* Spend Statistics Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-zinc-50 p-6 rounded-[2rem] border border-zinc-100">
+            <div className="text-center space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Raised</span>
+              <p className="text-2xl font-black text-black">${raisedAmount.toLocaleString()}</p>
+            </div>
+            <div className="text-center space-y-1 border-t sm:border-t-0 sm:border-x border-zinc-200 py-3 sm:py-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Spent</span>
+              <p className="text-2xl font-black text-black">${totalSpent.toLocaleString()}</p>
+            </div>
+            <div className="text-center space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Active Balance</span>
+              <p className="text-2xl font-black text-black">${remainingBalance.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Expenditures List */}
+          <div className="space-y-4 pt-2">
+            {spendingLogs.length > 0 ? (
+              spendingLogs.map((log) => (
+                <div key={log.id} className="p-6 bg-zinc-50 rounded-3xl border border-zinc-100/50 hover:border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-6 transition-all hover:bg-zinc-100 group">
+                  <div className="space-y-2 flex-grow">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl font-black text-black">${parseFloat(log.amount).toLocaleString()}</span>
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest font-mono">• {new Date(log.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-zinc-600 font-medium leading-relaxed">{log.description}</p>
+                  </div>
+                  <div className="shrink-0 flex items-center justify-end sm:justify-start">
+                    {log.proof_url ? (
+                      <a 
+                        href={log.proof_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-lime-400 border border-zinc-200 hover:border-lime-400 text-zinc-700 hover:text-black text-xs font-black rounded-full shadow-sm transition-all duration-300 hover:scale-105 active:scale-95"
+                      >
+                        View IPFS Proof
+                        <ArrowUpRight size={13} className="stroke-[3]" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-zinc-400 italic font-medium font-sans">No proof available</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center bg-zinc-50 rounded-3xl border border-zinc-100/50">
+                <p className="text-zinc-500 font-medium text-sm">No funds have been spent yet. All spending logs will appear here once registered by the NGO.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6 pt-12 border-t border-zinc-100">

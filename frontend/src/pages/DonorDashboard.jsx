@@ -3,14 +3,80 @@ import { mockDb } from '../services/mockDb';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import CampaignCard from '../components/CampaignCard';
-import { Wallet, History, Heart, ArrowUpRight, Megaphone } from 'lucide-react';
+import { Wallet, History, Heart, ArrowUpRight, Megaphone, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { generateReceiptPDF } from '../utils/receiptGenerator';
+
+
 
 const DonorDashboard = () => {
   const { user } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [myDonations, setMyDonations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [generatingId, setGeneratingId] = useState(null);
+
+  const handleDownloadReceipt = async (donation) => {
+    // If it already has a receipt_url, we just open it in a new tab
+    if (donation.receipt_url) {
+      window.open(donation.receipt_url, '_blank');
+      return;
+    }
+
+    // Otherwise, generate it dynamically!
+    setGeneratingId(donation.id);
+    try {
+      const pdfBlob = generateReceiptPDF({
+        donation,
+        campaign: donation.campaigns,
+        donor: user
+      });
+
+      // Trigger immediate local download for user
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipt-${donation.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Proactively upload to Supabase to heal the database record for future visits!
+      const fileName = `receipt-${donation.id}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, pdfBlob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'application/pdf'
+        });
+
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('receipts')
+          .getPublicUrl(fileName);
+
+        // Update database row
+        const { error: updateError } = await supabase
+          .from('donation_logs')
+          .update({ receipt_url: publicUrl })
+          .eq('id', donation.id);
+
+        if (!updateError) {
+          // Update local state to show it is now saved
+          setMyDonations(prev => prev.map(item => 
+            item.id === donation.id ? { ...item, receipt_url: publicUrl } : item
+          ));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to generate historical receipt:", err);
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -19,7 +85,7 @@ const DonorDashboard = () => {
         // Fetch all campaigns
         const { data: campaignData } = await supabase
           .from('campaigns')
-          .select('*')
+          .select('*, donation_logs(amount)')
           .order('created_at', { ascending: false });
         
         if (campaignData) setCampaigns(campaignData);
@@ -124,9 +190,30 @@ const DonorDashboard = () => {
                           <p className="text-sm text-zinc-400 font-mono mt-1">Tx: {d.tx_hash.slice(0, 16)}...</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-black text-black">+${parseFloat(d.amount).toLocaleString()}</p>
-                        <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-1">{new Date(d.created_at).toLocaleDateString()}</p>
+                      <div className="text-right flex items-center gap-6">
+                        <div>
+                          <p className="text-xl font-black text-black">+${parseFloat(d.amount).toLocaleString()}</p>
+                          <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest mt-1">{new Date(d.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div className="w-32 flex justify-end">
+                          {generatingId === d.id ? (
+                            <button
+                              disabled
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 border border-zinc-200 text-zinc-400 text-xs font-black rounded-full shadow-sm"
+                            >
+                              <Loader2 size={13} className="animate-spin" />
+                              Compiling...
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleDownloadReceipt(d)}
+                              className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-zinc-50 hover:bg-lime-400 border border-zinc-200 hover:border-lime-400 text-zinc-700 hover:text-black text-xs font-black rounded-full shadow-sm transition-all duration-300 hover:scale-105 active:scale-95"
+                            >
+                              <ArrowUpRight size={13} className="stroke-[3]" />
+                              {d.receipt_url ? 'Receipt' : 'Generate'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                    </div>
                  );

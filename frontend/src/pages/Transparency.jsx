@@ -12,7 +12,7 @@ const Transparency = () => {
       try {
         const { data: campaignData } = await supabase
           .from('campaigns')
-          .select('*');
+          .select('*, donation_logs(amount)');
         
         if (campaignData) setCampaigns(campaignData);
 
@@ -32,7 +32,12 @@ const Transparency = () => {
     fetchData();
   }, []);
 
-  const totalDonations = campaigns.reduce((acc, c) => acc + parseFloat(c.raised_amount), 0);
+  const totalDonations = campaigns.reduce((acc, c) => {
+    const raisedAmount = c.donation_logs
+      ? c.donation_logs.reduce((sum, d) => sum + parseFloat(d.amount), 0)
+      : parseFloat(c.raised_amount || 0);
+    return acc + raisedAmount;
+  }, 0);
 
   if (loading) {
     return (
@@ -44,7 +49,7 @@ const Transparency = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pt-32 pb-12 space-y-12">
+    <div className="max-w-7xl mx-auto px-4 pt-16 pb-12 space-y-12">
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-slate-900">Transparency Dashboard</h1>
         <p className="text-slate-500 max-w-2xl mx-auto text-lg">

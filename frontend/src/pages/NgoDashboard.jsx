@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { mockDb } from '../services/mockDb';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Megaphone, Plus, FileText, Trash2, AlertCircle } from 'lucide-react';
+import { Megaphone, Plus, FileText, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { useForm } from 'react-hook-form';
@@ -15,6 +15,7 @@ import { CONTRACT_ADDRESSES } from '../lib/contracts';
 import DonationABI from '../lib/abi/Donation.json';
 import { safeParseCampaignId } from '../lib/ugf';
 import { ethers } from 'ethers';
+import { uploadToIPFS } from '../utils/ipfs';
 
 const campaignSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
@@ -30,6 +31,113 @@ const campaignSchema = z.object({
     const [loading, setLoading] = useState(true);
     const [ngoId, setNgoId] = useState(null);
     const [campaigns, setCampaigns] = useState([]);
+
+    // Usage Logs states
+    const [selectedCampaignForLogs, setSelectedCampaignForLogs] = useState(null);
+    const [showLogsModal, setShowLogsModal] = useState(false);
+    const [logs, setLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+    const [isAddingLog, setIsAddingLog] = useState(false);
+
+    // Form inputs for recording spend
+    const [spendDescription, setSpendDescription] = useState('');
+    const [spendAmount, setSpendAmount] = useState('');
+    const [spendProofFile, setSpendProofFile] = useState(null);
+
+    const fetchUsageLogs = async (campaignId) => {
+      setLoadingLogs(true);
+      try {
+        const { data, error } = await supabase
+          .from('fund_usage')
+          .select('*')
+          .eq('campaign_id', campaignId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        // Filter to only display records stored on the Pinata (IPFS) network
+        const validLogs = (data || []).filter(log => log.proof_url && log.proof_url.includes('pinata.cloud'));
+        setLogs(validLogs);
+      } catch (err) {
+        console.error("Error fetching usage logs:", err);
+        toast.error("Failed to load spending logs.");
+      } finally {
+        setLoadingLogs(false);
+      }
+    };
+
+    const handleOpenLogs = (campaign) => {
+      setSelectedCampaignForLogs(campaign);
+      setShowLogsModal(true);
+      fetchUsageLogs(campaign.id);
+      
+      // Clear form states
+      setSpendDescription('');
+      setSpendAmount('');
+      setSpendProofFile(null);
+    };
+
+    const handleAddSpendingLog = async (e) => {
+      e.preventDefault();
+      if (!selectedCampaignForLogs) return;
+
+      if (!spendDescription.trim() || !spendAmount || parseFloat(spendAmount) <= 0) {
+        toast.error("Please enter a valid description and amount.");
+        return;
+      }
+
+      if (!spendProofFile) {
+        toast.error("Please upload a receipt or invoice file as proof.");
+        return;
+      }
+
+      setIsAddingLog(true);
+      const toastId = toast.loading("Uploading proof to IPFS network...");
+
+      try {
+        const fileExtension = spendProofFile.name.split('.').pop();
+        const fileName = `spend-proof-${selectedCampaignForLogs.id}-${Date.now()}.${fileExtension}`;
+        
+        // 1. Upload proof file to IPFS
+        const ipfsResult = await uploadToIPFS(spendProofFile, fileName);
+        if (!ipfsResult.success) throw new Error("Failed to upload proof to IPFS");
+        const finalProofUrl = ipfsResult.gatewayUrl;
+
+        toast.loading("Recording spending details in database...", { id: toastId });
+
+        // 2. Save new log record in Supabase fund_usage table
+        const { data: newLog, error: dbError } = await supabase
+          .from('fund_usage')
+          .insert({
+            campaign_id: selectedCampaignForLogs.id,
+            description: spendDescription,
+            amount: parseFloat(spendAmount),
+            proof_url: finalProofUrl
+          })
+          .select()
+          .single();
+
+        if (dbError) throw dbError;
+
+        toast.success("Fund spend recorded successfully!", { id: toastId });
+        
+        // Refresh logs list locally
+        setLogs([newLog, ...logs]);
+        
+        // Reset form inputs
+        setSpendDescription('');
+        setSpendAmount('');
+        setSpendProofFile(null);
+        
+        const fileInput = document.getElementById('spendProofFileInput');
+        if (fileInput) fileInput.value = '';
+
+      } catch (err) {
+        console.error("Error saving spending log:", err);
+        toast.error(`Failed to save spend: ${err.message}`, { id: toastId });
+      } finally {
+        setIsAddingLog(false);
+      }
+    };
 
     const { isConnected, getSigner, isDevWalletEnabled, connectDevWallet } = useNexusWallet();
     const [isCreatingOnChain, setIsCreatingOnChain] = useState(false);
@@ -53,7 +161,7 @@ const campaignSchema = z.object({
             if (data.verification_status === 'verified') {
               const { data: campaignData } = await supabase
                 .from('campaigns')
-                .select('*')
+                .select('*, donation_logs(amount)')
                 .eq('ngo_id', data.id)
                 .order('created_at', { ascending: false });
                 
@@ -233,7 +341,10 @@ const campaignSchema = z.object({
 
         <div className="space-y-6">
           {campaigns.length > 0 ? campaigns.map((campaign) => {
-             const progress = (campaign.raised_amount / campaign.goal_amount) * 100;
+             const raisedAmount = campaign.donation_logs 
+               ? campaign.donation_logs.reduce((sum, d) => sum + parseFloat(d.amount), 0) 
+               : parseFloat(campaign.raised_amount || 0);
+             const progress = Math.min((raisedAmount / campaign.goal_amount) * 100, 100);
              return (
                <div key={campaign.id} className="flex flex-col sm:flex-row gap-6 p-6 rounded-[2rem] border border-zinc-100 hover:border-zinc-200 transition-all bg-white group">
                   <div className="h-48 sm:h-auto sm:w-48 rounded-2xl overflow-hidden shrink-0 relative">
@@ -247,7 +358,7 @@ const campaignSchema = z.object({
                       <h4 className="text-2xl font-bold text-black mb-2">{campaign.title}</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                          <span>${campaign.raised_amount.toLocaleString()} Raised</span>
+                          <span>${raisedAmount.toLocaleString()} Raised</span>
                           <span>Goal: ${campaign.goal_amount.toLocaleString()}</span>
                         </div>
                         <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
@@ -257,7 +368,10 @@ const campaignSchema = z.object({
                     </div>
 
                     <div className="flex items-center gap-3 border-t border-zinc-100 pt-4">
-                      <button className="flex-grow py-2.5 bg-zinc-50 text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-colors flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => handleOpenLogs(campaign)}
+                        className="flex-grow py-2.5 bg-zinc-50 text-black rounded-xl text-sm font-bold hover:bg-zinc-100 transition-colors flex items-center justify-center gap-2"
+                      >
                         <FileText size={16} />
                         Usage Logs
                       </button>
@@ -344,6 +458,136 @@ const campaignSchema = z.object({
                 )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Spending Logs Modal */}
+      {showLogsModal && selectedCampaignForLogs && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLogsModal(false)} />
+          <div className="relative bg-white w-full max-w-2xl rounded-[2.5rem] p-8 sm:p-10 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 mb-6">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 font-mono">Campaign Spending Proofs</span>
+                <h3 className="text-2xl font-black text-black">{selectedCampaignForLogs.title}</h3>
+              </div>
+              <button 
+                onClick={() => setShowLogsModal(false)}
+                className="h-10 w-10 bg-zinc-50 hover:bg-zinc-100 rounded-full flex items-center justify-center text-zinc-500 hover:text-black transition-colors font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable container */}
+            <div className="flex-1 overflow-y-auto space-y-8 pr-2">
+              
+              {/* Record Spend Form */}
+              <div className="p-6 rounded-[2rem] border border-zinc-100 bg-zinc-50 space-y-4">
+                <h4 className="text-lg font-black text-black">
+                  Record Fund Expenditure
+                </h4>
+                <p className="text-xs text-zinc-500 font-medium">
+                  Every spend recorded here must include a receipt or invoice file which is immutably stored on the decentralized Pinata (IPFS) network for public donor auditing.
+                </p>
+                
+                <form onSubmit={handleAddSpendingLog} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Amount Spent ($)</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="e.g. 1500.00" 
+                        value={spendAmount}
+                        onChange={(e) => setSpendAmount(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-black transition-all font-bold text-black"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">
+                        Receipt / Invoice File
+                      </label>
+                      <input 
+                        type="file" 
+                        id="spendProofFileInput"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => setSpendProofFile(e.target.files[0])}
+                        className="w-full px-4 py-2 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-black text-sm text-zinc-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-black file:text-white file:cursor-pointer hover:file:bg-zinc-800 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Spending Description & Purpose</label>
+                    <textarea 
+                      placeholder="Explain exactly how these funds were deployed (e.g., purchased 50 medical emergency kits from supplier X)..." 
+                      value={spendDescription}
+                      onChange={(e) => setSpendDescription(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:border-black transition-all min-h-[80px] text-sm text-black"
+                      required
+                    />
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full rounded-xl py-3 h-12 text-sm font-bold text-white transition-colors bg-black hover:bg-zinc-800"
+                    loading={isAddingLog}
+                  >
+                    {isAddingLog ? 'Uploading Receipt & Saving...' : 'Upload Receipt & Save Spend'}
+                  </Button>
+                </form>
+              </div>
+
+              {/* Past Spends Ledger */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-black text-black font-sans">Past Expenditures Ledger</h4>
+                
+                {loadingLogs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="animate-spin text-zinc-400" />
+                  </div>
+                ) : logs.length > 0 ? (
+                  <div className="space-y-3">
+                    {logs.map((log) => (
+                      <div key={log.id} className="p-5 border border-zinc-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white hover:border-zinc-200 transition-colors">
+                        <div className="space-y-1 flex-grow">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-lg text-black">${parseFloat(log.amount).toLocaleString()}</span>
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest font-mono">• {new Date(log.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-sm text-zinc-600 font-medium leading-relaxed">{log.description}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          {log.proof_url ? (
+                            <a 
+                              href={log.proof_url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-lime-400 hover:bg-lime-500 text-black text-xs font-black rounded-full shadow-sm transition-all"
+                            >
+                              View IPFS Proof ↗
+                            </a>
+                          ) : (
+                            <span className="text-xs text-zinc-400 italic font-medium">No proof URL</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 text-center bg-zinc-50 border border-zinc-100/50 rounded-2xl">
+                    <p className="text-zinc-500 font-medium text-sm">No expenditures recorded for this campaign yet.</p>
+                  </div>
+                )}
+              </div>
+
+            </div>
           </div>
         </div>
       )}

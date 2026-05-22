@@ -16,7 +16,7 @@ const Landing = () => {
       try {
         const { data } = await supabase
           .from('campaigns')
-          .select('*')
+          .select('*, donation_logs(amount)')
           .order('created_at', { ascending: false });
         if (data) setCampaigns(data);
       } catch (error) {
