@@ -321,9 +321,7 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
   const readProvider = await getFallbackProvider();
   const tokenContract = new ethers.Contract(
     resolvedTokenAddress,
-    [
-      'function allowance(address owner, address spender) view returns (uint256)',
-    ],
+    MockUSDABI,
     readProvider
   );
 
@@ -337,42 +335,11 @@ export async function donateWithUGF({ signer, provider, campaignId, amount, mess
   if (currentAllowance < amountWei) {
     progress('approve', { status: 'Approving token transfer... Please sign in wallet.' });
 
-    // Encode ERC-20 approve(spender, amount) calldata
-    const approveData = encodeFunctionData({
-      abi: MockUSDABI,
-      functionName: 'approve',
-      args: [resolvedDonationAddress, amountWei],
-    });
-
-    // Get UGF quote for the approve transaction
-    const approveQuote = await getDonationQuote({
-      payerAddress: resolvedPayerAddress,
-      to: resolvedTokenAddress,
-      data: approveData,
-    });
-
-    // Pay gas for approve
-    await payForGas(approveQuote, signer, provider);
-
-    // Execute sponsored approve
-    await executeSponsoredTransaction(
-      approveQuote.digest,
-      signer,
-      async () => ({
-        to: resolvedTokenAddress,
-        data: approveData,
-        value: 0,
-      }),
-      {
-        maxAttempts: 30,
-        intervalMs: 2000,
-        onTick: (status, attempt) => {
-          progress('approve', {
-            status: `Waiting for approval confirmation... (attempt ${attempt})`,
-          });
-        },
-      }
-    );
+    // Send a standard (non-sponsored) approve transaction
+    // UGF testnet gateway only sponsors verified contracts, so standard ERC-20 approvals must be paid by the user.
+    const tx = await tokenContract.connect(signer).approve(resolvedDonationAddress, amountWei);
+    progress('approve', { status: 'Waiting for approval transaction to confirm...' });
+    await tx.wait();
 
     progress('approve', { status: 'Token approved!' });
   } else {
