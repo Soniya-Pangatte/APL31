@@ -21,6 +21,7 @@ const Navbar = () => {
 
   return (
     <nav
+      aria-label="Main navigation"
       className={`w-full z-50 ${
         isLanding
           ? 'absolute left-0 top-0 bg-transparent'
@@ -67,6 +68,7 @@ const Navbar = () => {
                   </div>
                   <button 
                     onClick={disconnect}
+                    aria-label="Disconnect wallet"
                     className="text-[10px] text-red-400 hover:text-red-300 font-bold bg-transparent border-0 cursor-pointer pl-2 border-l border-white/10"
                   >
                     ✕
@@ -168,6 +170,9 @@ const Navbar = () => {
           <div className="md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={isMenuOpen}
+              aria-controls="mobile-menu"
               className="text-white p-2 hover:text-lime-400 transition-colors"
             >
               {isMenuOpen ? <X size={32} /> : <Menu size={32} />}
@@ -178,7 +183,7 @@ const Navbar = () => {
 
       {/* Mobile Nav */}
       {isMenuOpen && (
-        <div className="md:hidden bg-zinc-950/95 backdrop-blur-3xl border-b border-white/10 py-6 px-6 space-y-6 animate-in slide-in-from-top duration-300 shadow-2xl absolute w-full left-0 top-20">
+        <div id="mobile-menu" className="md:hidden bg-zinc-950/95 backdrop-blur-3xl border-b border-white/10 py-6 px-6 space-y-6 animate-in slide-in-from-top duration-300 shadow-2xl absolute w-full left-0 top-20">
           {user?.role !== 'ngo' && (
             <>
               <Link to="/" className="block text-2xl text-zinc-300 hover:text-lime-400 font-black tracking-tight" onClick={() => setIsMenuOpen(false)}>Home</Link>

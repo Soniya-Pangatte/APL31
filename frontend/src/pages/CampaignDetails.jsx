@@ -9,7 +9,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { toast } from 'sonner';
 import { useNexusWallet } from '../lib/useNexusWallet';
 import { donateWithUGF, handleUGFError } from '../lib/ugf';
-
+import { fetchLiveDisasters } from '../services/gdacs';
 
 const CampaignDetails = () => {
   const { id } = useParams();
@@ -29,7 +29,21 @@ const CampaignDetails = () => {
   useEffect(() => {
     const fetchCampaignData = async () => {
       try {
-        // Fetch campaign details
+        // Intercept API-generated GDACS campaigns
+        if (id.startsWith('gdacs-')) {
+          const liveDisasters = await fetchLiveDisasters();
+          const gdacsCampaign = liveDisasters.find(d => d.id === id);
+          
+          if (gdacsCampaign) {
+            setCampaign(gdacsCampaign);
+            setDonations([]);
+            setSpendingLogs([]);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Fetch local database campaign details
         const { data: campaignData, error: campaignError } = await supabase
           .from('campaigns')
           .select('*, donation_logs(amount)')
@@ -285,8 +299,12 @@ const CampaignDetails = () => {
                <input 
                  type="number"
                  placeholder="0.00"
+                 min="0.01"
+                 step="0.01"
+                 max={Math.max(campaign.goal_amount - raisedAmount, 0) || undefined}
                  value={donationAmount}
                  onChange={(e) => setDonationAmount(e.target.value)}
+                 aria-label="Donation amount in USD"
                  className="w-full pl-12 pr-6 py-5 bg-white border-2 border-transparent focus:border-black rounded-[2rem] text-2xl font-black focus:outline-none transition-all text-center shadow-sm"
                  disabled={!isConnected}
                />

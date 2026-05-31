@@ -5,6 +5,7 @@ import { ShieldCheck as ShieldIcon, History as HistoryIcon, ExternalLink as Exte
 const Transparency = () => {
   const [donations, setDonations] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [verifiedNgos, setVerifiedNgos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +23,18 @@ const Transparency = () => {
           .order('created_at', { ascending: false });
 
         if (donationData) setDonations(donationData);
+
+        const { data: ngoData } = await supabase
+          .from('ngos')
+          .select('organization_name')
+          .eq('verification_status', 'verified')
+          .limit(3);
+        
+        if (ngoData && ngoData.length > 0) {
+          setVerifiedNgos(ngoData.map(n => n.organization_name));
+        } else {
+          setVerifiedNgos(['Global Relief Fund', 'Red Cross International']); // Fallback
+        }
       } catch (error) {
         console.error("Error fetching transparency data:", error);
       } finally {
@@ -64,8 +77,8 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
         {[
           { label: 'Total Value Distributed', value: `$${totalDonations.toLocaleString()}`, color: 'bg-zinc-100 text-zinc-900' },
           { label: 'Active Campaigns', value: campaigns.length, color: 'bg-zinc-100 text-zinc-900' },
-          { label: 'Platform Uptime', value: '100%', color: 'bg-zinc-100 text-zinc-900' },
-          { label: 'Network Nodes', value: '14,281', color: 'bg-zinc-100 text-zinc-900' },
+          { label: 'Platform Uptime', value: '—', color: 'bg-zinc-100 text-zinc-900' },
+          { label: 'Network Nodes', value: '—', color: 'bg-zinc-100 text-zinc-900' },
         ].map((stat, i) => (
           <div key={i} className={`p-6 rounded-3xl ${stat.color} flex flex-col items-center justify-center text-center space-y-1`}>
             <span className="text-sm font-bold opacity-70">{stat.label}</span>
@@ -87,6 +100,7 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
               <input 
                 type="text" 
                 placeholder="Search tx hash..." 
+                aria-label="Search transactions by hash"
                 className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500/20 focus:border-black"
               />
             </div>
@@ -95,6 +109,7 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
+                <caption className="sr-only">Recent public ledger transactions</caption>
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Transaction Hash</th>
@@ -152,15 +167,17 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
               We only partner with NGOs that meet our strict transparency standards. All partner accounts are multi-sig wallets managed by verified humanitarian leaders.
             </p>
             <div className="space-y-4">
-              {['Red Cross International', 'Save the Children', 'Global Relief Fund'].map((ngo, i) => (
+              {verifiedNgos.length > 0 ? verifiedNgos.map((ngo, i) => (
                 <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
                   <span className="text-sm font-medium">{ngo}</span>
                   <ShieldIcon size={16} className="text-zinc-500" />
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-zinc-400">No verified NGOs yet.</p>
+              )}
             </div>
             <button className="w-full py-3 bg-white text-black hover:bg-zinc-200 rounded-xl font-bold transition-all">
-              Apply as NGO
+               Apply as NGO
             </button>
           </div>
 
@@ -179,8 +196,4 @@ From donation inflows to NGO spending records, anyone can monitor how funds are 
   );
 };
 
-
-
 export default Transparency;
-
-

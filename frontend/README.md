@@ -1,16 +1,45 @@
-# React + Vite
+# Nexus Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Nexus is a transparent disaster relief donation platform. This frontend provides the user interface for donors, NGOs, and administrators to interact with the Nexus ecosystem.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Transparent Donations:** Track every donation through blockchain and verified logs.
+- **NGO Verification:** Rigorous verification process for NGOs to ensure trust.
+- **Impact Tracking:** See how donations are being used in real-time.
+- **Multi-role Dashboard:** Tailored experiences for Donors, NGOs, and Admins.
+- **Web3 Integration:** Secure wallet connection and blockchain transactions.
 
-## React Compiler
+## Technologies
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React + Vite:** Modern, fast frontend development.
+- **Tailwind CSS:** Responsive and clean styling.
+- **Framer Motion:** Smooth animations and interactions.
+- **Supabase:** Backend-as-a-Service for authentication and data storage.
+- **Ethers.js / Wagmi:** Interaction with the Ethereum blockchain.
+- **Gemini (Coming Soon):** AI-powered insights and impact reporting.
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+
+2.  **Environment Variables:**
+    Copy `.env.example` to `.env` and fill in the required values:
+    - `VITE_SUPABASE_URL`
+    - `VITE_SUPABASE_ANON_KEY`
+
+3.  **Run Development Server:**
+    ```bash
+    npm run dev
+    ```
+
+## Development Standards
+
+This project follows the standards defined in `GEMINI.md`:
+- **Google-First:** Preference for Google technologies (Gemini integration planned).
+- **Security:** Strict handling of environment variables and user data.
+- **Accessibility:** Designed for all users with semantic HTML and responsive layouts.
+- **Testing:** Critical business logic is covered by unit tests.

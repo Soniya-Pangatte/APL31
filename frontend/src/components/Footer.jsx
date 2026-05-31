@@ -2,6 +2,10 @@ import React from 'react';
 import { Heart, Globe, MessageSquare, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+/**
+ * Site-wide footer with platform links and social media icons.
+ * Hidden for NGO users who have their own dashboard layout.
+ */
 const Footer = () => {
   const { user } = useAuth();
   
@@ -23,9 +27,9 @@ const Footer = () => {
             Revolutionizing humanitarian aid through blockchain transparency. Every donation is tracked, every expense is verified, and every life matters.
           </p>
           <div className="flex gap-4">
-            <a href="#" className="text-zinc-400 hover:text-white transition-colors"><Globe size={20} /></a>
-            <a href="#" className="text-zinc-400 hover:text-white transition-colors"><MessageSquare size={20} /></a>
-            <a href="#" className="text-zinc-400 hover:text-white transition-colors"><Mail size={20} /></a>
+            <a href="#" aria-label="Visit our website" className="text-zinc-400 hover:text-white transition-colors"><Globe size={20} /></a>
+            <a href="#" aria-label="Message us" className="text-zinc-400 hover:text-white transition-colors"><MessageSquare size={20} /></a>
+            <a href="#" aria-label="Email us" className="text-zinc-400 hover:text-white transition-colors"><Mail size={20} /></a>
           </div>
         </div>
         

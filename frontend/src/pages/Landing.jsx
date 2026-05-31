@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import CampaignCard from '../components/CampaignCard';
 import bgImage from '../../bg.png';
+import { mockDb } from '../services/mockDb';
+import { fetchLiveDisasters } from '../services/gdacs';
 
 const Landing = () => {
   const { user } = useAuth();
@@ -14,13 +16,40 @@ const Landing = () => {
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const { data } = await supabase
+        let combinedCampaigns = [];
+
+        // 1. Fetch Local Campaigns from DB
+        const { data: localData } = await supabase
           .from('campaigns')
           .select('*, donation_logs(amount)')
           .order('created_at', { ascending: false });
-        if (data) setCampaigns(data);
+
+        if (localData && localData.length > 0) {
+          combinedCampaigns = [...localData];
+        }
+
+        // 2. Fetch Live Global Disasters from GDACS API
+        try {
+          const liveDisasters = await fetchLiveDisasters();
+          if (liveDisasters.length > 0) {
+            combinedCampaigns = [...combinedCampaigns, ...liveDisasters];
+          }
+        } catch (apiErr) {
+          console.error("GDACS API warning:", apiErr);
+        }
+
+        // 3. Fallback to mock data if absolutely empty
+        if (combinedCampaigns.length === 0) {
+          combinedCampaigns = mockDb.getCampaigns();
+        }
+
+        setCampaigns(combinedCampaigns);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
+        
+        // Final fallback chain
+        const liveDisasters = await fetchLiveDisasters();
+        setCampaigns(liveDisasters.length > 0 ? liveDisasters : mockDb.getCampaigns());
       } finally {
         setLoading(false);
       }

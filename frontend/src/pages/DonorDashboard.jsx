@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { mockDb } from '../services/mockDb';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import CampaignCard from '../components/CampaignCard';
 import { Wallet, History, Heart, ArrowUpRight, Megaphone, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { generateReceiptPDF } from '../utils/receiptGenerator';
+import { fetchLiveDisasters } from '../services/gdacs';
 
 
 
@@ -82,13 +82,27 @@ const DonorDashboard = () => {
     const fetchData = async () => {
       if (!user) return;
       try {
-        // Fetch all campaigns
+        let combinedCampaigns = [];
+
+        // Fetch all local campaigns
         const { data: campaignData } = await supabase
           .from('campaigns')
           .select('*, donation_logs(amount)')
           .order('created_at', { ascending: false });
         
-        if (campaignData) setCampaigns(campaignData);
+        if (campaignData) combinedCampaigns = [...campaignData];
+
+        // Fetch Live Global Disasters from GDACS API
+        try {
+          const liveDisasters = await fetchLiveDisasters();
+          if (liveDisasters.length > 0) {
+            combinedCampaigns = [...combinedCampaigns, ...liveDisasters];
+          }
+        } catch (apiErr) {
+          console.error("GDACS API warning:", apiErr);
+        }
+
+        setCampaigns(combinedCampaigns);
 
         // Fetch user donations
         const { data: donationData } = await supabase

@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [ngos, setNgos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [campaigns, setCampaigns] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +40,12 @@ const AdminDashboard = () => {
       // Fetch Campaigns for stats
       const { data: campaignData } = await supabase.from('campaigns').select('*, donation_logs(amount)');
       if (campaignData) setCampaigns(campaignData);
+
+      // Fetch total user count for platform stats
+      const { count: userCount } = await supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true });
+      if (userCount !== null) setTotalUsers(userCount);
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
@@ -101,9 +108,9 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { label: 'Total Revenue', value: `$${totalRaised.toLocaleString()}`, icon: BarChart3 },
-            { label: 'Total Users', value: '2,841', icon: Users },
+            { label: 'Total Users', value: totalUsers.toLocaleString(), icon: Users },
             { label: 'Active NGOs', value: ngos.filter(n => n.status === 'verified').length.toString(), icon: ShieldCheck },
-            { label: 'Flagged Activities', value: '3', icon: AlertCircle },
+            { label: 'Flagged Activities', value: '—', icon: AlertCircle },
           ].map((stat, i) => (
             <div key={i} className="flex flex-col items-center justify-center p-6 bg-zinc-50 rounded-[2rem]">
                <stat.icon size={28} className="mb-3 text-black" />

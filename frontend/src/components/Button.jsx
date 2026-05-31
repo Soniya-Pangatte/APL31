@@ -2,6 +2,15 @@ import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Reusable Button component with variant styling, loading state, and accessibility support.
+ *
+ * @param {object} props
+ * @param {'primary'|'secondary'|'outline'|'ghost'|'danger'} props.variant - Visual style variant
+ * @param {'sm'|'md'|'lg'} props.size - Size preset
+ * @param {boolean} props.loading - Shows spinner and disables interaction
+ * @param {boolean} props.disabled - Disables interaction
+ */
 const Button = ({ 
   children, 
   variant = 'primary', 
@@ -28,6 +37,7 @@ const Button = ({
   return (
     <button
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={twMerge(
         'inline-flex items-center justify-center gap-2 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
         variants[variant],
@@ -37,7 +47,11 @@ const Button = ({
       {...props}
     >
       {loading ? (
-        <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-label="Loading"
+          className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+        />
       ) : null}
       {children}
     </button>
