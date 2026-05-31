@@ -22,15 +22,14 @@ const Navbar = () => {
   return (
     <nav
       aria-label="Main navigation"
-      className={`w-full z-50 ${
-        isLanding
+      className={`w-full z-50 ${isLanding
           ? 'absolute left-0 top-0 bg-transparent'
           : 'sticky top-0 bg-black/95 backdrop-blur-md border-b border-white/10 shadow-lg'
-      }`}
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
-          
+
           {/* Logo Section */}
           <Link to={user?.role === 'ngo' ? '/ngo-dashboard' : '/'} className="flex items-center gap-3 group">
             <div className="relative">
@@ -55,7 +54,7 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-            
+
             {/* Wallet Connect Button - visible to all users */}
             <div className="flex items-center gap-3 pl-4 border-l border-white/10">
               {isDevWallet ? (
@@ -66,7 +65,7 @@ const Navbar = () => {
                       {address?.slice(0, 6)}...{address?.slice(-4)}
                     </span>
                   </div>
-                  <button 
+                  <button
                     onClick={disconnect}
                     aria-label="Disconnect wallet"
                     className="text-[10px] text-red-400 hover:text-red-300 font-bold bg-transparent border-0 cursor-pointer pl-2 border-l border-white/10"
@@ -110,7 +109,7 @@ const Navbar = () => {
                           {address.slice(0, 6)}...{address.slice(-4)}
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={disconnect}
                         className="text-xs text-red-400 hover:text-red-300 font-bold bg-transparent border-0 cursor-pointer pl-2 border-l border-white/10 animate-pulse"
                       >
@@ -132,7 +131,7 @@ const Navbar = () => {
                   )}
                 </div>
 
-                <Link 
+                <Link
                   to={`/${user.role}-dashboard`}
                   className="group flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 hover:bg-lime-400 border border-white/10 hover:border-lime-400 text-white hover:text-black transition-all duration-300 shadow-lg hover:shadow-[0_0_20px_rgba(163,230,53,0.4)]"
                 >
@@ -148,21 +147,21 @@ const Navbar = () => {
                 </button>
               </div>
             ) : (
-               <div className="flex items-center gap-6 pl-4 border-l border-white/10">
-                 <Link 
-                   to="/login" 
-                   className="text-white hover:text-lime-400 transition-colors"
-                 >
-                   Login
-                 </Link>
-                 <Link 
-                   to="/signup" 
-                   className="relative group overflow-hidden px-8 py-3 bg-lime-400 text-black rounded-full font-black transition-all shadow-[0_0_20px_rgba(163,230,53,0.3)] hover:shadow-[0_0_30px_rgba(163,230,53,0.6)] hover:scale-105"
-                 >
-                   <span className="relative z-10 flex items-center gap-2">Join Us</span>
-                   <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-                 </Link>
-               </div>
+              <div className="flex items-center gap-6 pl-4 border-l border-white/10">
+                <Link
+                  to="/login"
+                  className="text-white hover:text-lime-400 transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="relative group overflow-hidden px-8 py-3 bg-lime-400 text-black rounded-full font-black transition-all shadow-[0_0_20px_rgba(163,230,53,0.3)] hover:shadow-[0_0_30px_rgba(163,230,53,0.6)] hover:scale-105"
+                >
+                  <span className="relative z-10 flex items-center gap-2">Join Us</span>
+                  <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
+                </Link>
+              </div>
             )}
           </div>
 
